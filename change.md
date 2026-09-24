@@ -1,0 +1,4 @@
+- The left panel should be not exceed 20% of the width
+- When the mouse hover the note,there always will have a horizontal bar, how to deal with it. 
+- When create a new note but I haven't save, the delete btn should not be clicked/activated.
+- When it comes to a phone size screen, edit panel will be downside the screen, which is difficult for writing. a folderable search and list panel will be more acceptable.

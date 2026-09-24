@@ -47,7 +47,7 @@
 
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 2fr;
+            grid-template-columns: minmax(220px, 20%) minmax(0, 1fr);
             gap: 30px;
             flex: 1;
         }
@@ -108,21 +108,42 @@
         .notes-list {
             max-height: 500px;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .note-item {
+            width: 100%;
             padding: 15px;
             border: 2px solid transparent;
             border-radius: 10px;
             margin-bottom: 10px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
             background: #f8f9fa;
+            overflow: visible;
+            box-sizing: border-box;
+            position: relative;
+            outline: 0;
+        }
+
+        .note-item::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            pointer-events: none;
+            transition: border-color 0.2s ease;
         }
 
         .note-item:hover {
+            transform: translateX(4px);
+            background: rgba(102, 126, 234, 0.08);
+            box-shadow: 0 8px 18px rgba(102, 126, 234, 0.12);
+        }
+
+        .note-item:hover::before {
             border-color: #667eea;
-            transform: translateX(5px);
         }
 
         .note-item.active {
@@ -178,6 +199,15 @@
             font-size: 14px;
             font-weight: 500;
             transition: all 0.2s ease;
+        }
+
+        .btn:disabled,
+        .btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+            transform: none;
+            box-shadow: none;
         }
 
         .btn-save {
@@ -283,13 +313,40 @@
             border: 1px solid #c3e6cb;
         }
 
+        .btn-toggle {
+            display: none;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
                 gap: 20px;
             }
-            
+
+            .sidebar {
+                max-height: 420px;
+                overflow: hidden;
+                transition: max-height 0.25s ease, opacity 0.25s ease, padding 0.25s ease;
+            }
+
+            .sidebar.collapsed {
+                max-height: 0;
+                opacity: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                pointer-events: none;
+            }
+
+            .btn-toggle {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #667eea;
+                color: white;
+                padding: 8px 12px;
+            }
+
             .header h1 {
                 font-size: 2rem;
             }
@@ -342,10 +399,11 @@
 
             <div class="note-editor">
                 <div class="editor-header">
+                    <button class="btn btn-toggle" id="toggleNotesBtn" type="button">☰ Notes</button>
                     <h2 class="editor-title" id="editorTitle">Select a note to edit</h2>
                     <div class="editor-actions" id="editorActions" style="display: none;">
                         <button class="btn btn-save" id="saveBtn">💾 Save</button>
-                        <button class="btn btn-delete" id="deleteBtn">🗑️ Delete</button>
+                        <button class="btn btn-delete" id="deleteBtn" type="button">🗑️ Delete</button>
                     </div>
                 </div>
 
@@ -390,7 +448,8 @@
                 document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
                 document.getElementById('deleteBtn').addEventListener('click', () => this.deleteNote());
                 document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
-                
+                document.getElementById('toggleNotesBtn').addEventListener('click', () => this.toggleSidebar());
+
                 // Auto-save on content change (debounced)
                 let saveTimeout;
                 const autoSave = () => {
@@ -404,6 +463,22 @@
                 
                 document.getElementById('noteTitle').addEventListener('input', autoSave);
                 document.getElementById('noteContent').addEventListener('input', autoSave);
+
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth > 768) {
+                        this.toggleSidebar(true);
+                    }
+                });
+            }
+
+            toggleSidebar(forceOpen) {
+                const sidebar = document.querySelector('.sidebar');
+                const toggleButton = document.getElementById('toggleNotesBtn');
+                if (!sidebar || !toggleButton) return;
+
+                const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : sidebar.classList.contains('collapsed');
+                sidebar.classList.toggle('collapsed', !shouldOpen);
+                toggleButton.textContent = shouldOpen ? '✕ Notes' : '☰ Notes';
             }
 
             async loadNotes() {
@@ -469,6 +544,7 @@
                 document.getElementById('noteContent').value = '';
                 document.getElementById('editorTitle').textContent = 'New Note';
                 document.getElementById('noteTitle').focus();
+                this.updateDeleteButtonState();
                 
                 // Remove active state from all notes
                 document.querySelectorAll('.note-item').forEach(item => {
@@ -480,6 +556,11 @@
                 document.getElementById('emptyState').style.display = 'none';
                 document.getElementById('editorForm').style.display = 'block';
                 document.getElementById('editorActions').style.display = 'flex';
+                this.updateDeleteButtonState();
+
+                if (window.innerWidth <= 768) {
+                    this.toggleSidebar(false);
+                }
             }
 
             hideEditor() {
@@ -488,6 +569,16 @@
                 document.getElementById('editorActions').style.display = 'none';
                 document.getElementById('editorTitle').textContent = 'Select a note to edit';
                 this.currentNote = null;
+                this.updateDeleteButtonState();
+            }
+
+            updateDeleteButtonState() {
+                const deleteBtn = document.getElementById('deleteBtn');
+                if (!deleteBtn) return;
+
+                const isDeletable = !!(this.currentNote && this.currentNote.id);
+                deleteBtn.disabled = !isDeletable;
+                deleteBtn.classList.toggle('disabled', !isDeletable);
             }
 
             async saveNote(isAutoSave = false) {
@@ -530,6 +621,7 @@
 
                     const savedNote = await response.json();
                     this.currentNote = savedNote;
+                    this.updateDeleteButtonState();
                     
                     // Update notes list
                     const existingIndex = this.notes.findIndex(n => n.id === savedNote.id);
