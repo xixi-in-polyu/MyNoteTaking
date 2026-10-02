@@ -9,6 +9,8 @@ A modern, responsive web application for managing personal notes with a beautifu
 - **Delete Notes**: Remove notes you no longer need
 - **Search Notes**: Find notes quickly by searching titles and content
 - **Auto-save**: Notes are automatically saved as you type
+- **Translate Notes**: Preview translations of note titles and content in multiple languages, including Chinese and Japanese
+- **Rewrite Notes**: Translate and polish a note before applying the generated preview
 - **Responsive Design**: Works perfectly on desktop and mobile devices
 - **Modern UI**: Beautiful gradient design with smooth animations
 - **Real-time Updates**: Instant feedback and updates
@@ -96,6 +98,18 @@ notetaking-app/
 - `PUT /api/notes/<id>` - Update a note
 - `DELETE /api/notes/<id>` - Delete a note
 - `GET /api/notes/search?q=<query>` - Search notes
+- `POST /api/notes/<id>/translate` - Generate a translated preview
+- `POST /api/notes/<id>/rewrite` - Generate a translated and polished preview
+
+Translation and rewrite requests accept a target language identifier:
+
+```json
+{
+   "language": "ja"
+}
+```
+
+Supported identifiers are `en`, `zh-CN`, `zh-TW`, `ja`, `ko`, `es`, `fr`, and `de`. Preview endpoints return translated `title` and `content` without modifying the note. The frontend persists generated content only after the user clicks Apply.
 
 ### Request/Response Format
 ```json
@@ -156,6 +170,7 @@ The application is configured for easy deployment with:
 ### Environment Variables
 - `FLASK_ENV`: Set to `development` for debug mode
 - `SECRET_KEY`: Flask secret key for sessions
+- `COMP_GENAI_API_KEY`: API key for the server-side translation and rewrite provider
 
 ### Database Configuration
 - Database file: `src/database/app.db`

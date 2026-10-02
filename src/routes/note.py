@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from src.models.note import Note, db
+from src.services.translation import TranslationError, SUPPORTED_LANGUAGES, generate_note_output
 
 note_bp = Blueprint('note', __name__)
 
@@ -48,6 +49,38 @@ def update_note(note_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@note_bp.route('/notes/<int:note_id>/translate', methods=['POST'])
+def translate_note(note_id):
+    """Generate a translated preview for a specific note."""
+    return _generate_note_preview(note_id, 'translate')
+
+@note_bp.route('/notes/<int:note_id>/rewrite', methods=['POST'])
+def rewrite_note(note_id):
+    """Generate a translated and polished preview for a specific note."""
+    return _generate_note_preview(note_id, 'rewrite')
+
+def _generate_note_preview(note_id, operation):
+    note = Note.query.get_or_404(note_id)
+    data = request.get_json(silent=True) or {}
+    language = data.get('language', '')
+
+    if language not in SUPPORTED_LANGUAGES:
+        return jsonify({
+            'error': 'Unsupported target language',
+            'supported_languages': SUPPORTED_LANGUAGES,
+        }), 400
+
+    try:
+        result = generate_note_output(note.title, note.content, language, operation)
+        return jsonify({
+            'operation': operation,
+            'language': language,
+            'title': result['title'],
+            'content': result['content'],
+        })
+    except TranslationError as error:
+        return jsonify({'error': str(error)}), 502
 
 @note_bp.route('/notes/<int:note_id>', methods=['DELETE'])
 def delete_note(note_id):

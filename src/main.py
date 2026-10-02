@@ -11,7 +11,7 @@ from src.routes.note import note_bp
 from src.models.note import Note
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
-app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-only-change-me')
 
 # Enable CORS for all routes
 CORS(app)
@@ -19,13 +19,22 @@ CORS(app)
 # register blueprints
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(note_bp, url_prefix='/api')
-# configure database to use repository-root `database/app.db`
+# Use hosted PostgreSQL on Vercel and repository-root SQLite for local development.
 ROOT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-DB_PATH = os.path.join(ROOT_DIR, 'database', 'app.db')
-# ensure database directory exists
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif DATABASE_URL.startswith('postgresql://'):
+        DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
+elif os.environ.get('VERCEL'):
+    raise RuntimeError('DATABASE_URL must be set to a persistent PostgreSQL database on Vercel.')
+else:
+    DB_PATH = os.path.join(ROOT_DIR, 'database', 'app.db')
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{DB_PATH}"
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 with app.app_context():

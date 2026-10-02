@@ -109,6 +109,8 @@
             max-height: 500px;
             overflow-y: auto;
             overflow-x: hidden;
+            padding-right: 6px;
+            margin-right: -6px;
         }
 
         .note-item {
@@ -156,6 +158,9 @@
             font-size: 16px;
             margin-bottom: 5px;
             color: #333;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .note-preview {
@@ -184,6 +189,8 @@
         .editor-title {
             font-size: 1.5rem;
             color: #333;
+            min-width: 0;
+            overflow-wrap: anywhere;
         }
 
         .editor-actions {
@@ -228,6 +235,48 @@
         .btn-delete:hover {
             background: #c82333;
             transform: translateY(-1px);
+        }
+
+        .translation-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #f4f6ff;
+            border: 1px solid #dfe4ff;
+            border-radius: 10px;
+        }
+
+        .translation-tools .form-label {
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .language-select {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px 10px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+        }
+
+        .btn-translate {
+            background: #667eea;
+            color: white;
+        }
+
+        @media (max-width: 600px) {
+            .translation-tools {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .language-select {
+                width: 100%;
+            }
         }
 
         .form-group {
@@ -384,7 +433,6 @@
     <div class="container">
         <div class="header">
             <h1>📝 NoteTaker</h1>
-            <p>Organize your thoughts, capture your ideas</p>
         </div>
 
         <div class="main-content">
@@ -408,6 +456,21 @@
                 </div>
 
                 <div id="messageArea"></div>
+
+                <div class="translation-tools" id="translationTools" style="display: none;">
+                    <label class="form-label" for="targetLanguage">Translate to</label>
+                    <select class="language-select" id="targetLanguage">
+                        <option value="en">English</option>
+                        <option value="zh-CN">Simplified Chinese</option>
+                        <option value="zh-TW">Traditional Chinese</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                    </select>
+                    <button class="btn btn-translate" id="translateBtn" type="button">Translate</button>
+                </div>
 
                 <div id="editorForm" style="display: none;">
                     <div class="form-group">
@@ -435,6 +498,7 @@
                 this.notes = [];
                 this.currentNote = null;
                 this.isLoading = false;
+                this.isGenerating = false;
                 this.init();
             }
 
@@ -447,6 +511,7 @@
                 document.getElementById('newNoteBtn').addEventListener('click', () => this.createNewNote());
                 document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
                 document.getElementById('deleteBtn').addEventListener('click', () => this.deleteNote());
+                document.getElementById('translateBtn').addEventListener('click', () => this.translateNote());
                 document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
                 document.getElementById('toggleNotesBtn').addEventListener('click', () => this.toggleSidebar());
 
@@ -557,6 +622,8 @@
                 document.getElementById('editorForm').style.display = 'block';
                 document.getElementById('editorActions').style.display = 'flex';
                 this.updateDeleteButtonState();
+                document.getElementById('translationTools').style.display = 'flex';
+                this.updateTranslationButtonState();
 
                 if (window.innerWidth <= 768) {
                     this.toggleSidebar(false);
@@ -567,6 +634,7 @@
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('editorForm').style.display = 'none';
                 document.getElementById('editorActions').style.display = 'none';
+                document.getElementById('translationTools').style.display = 'none';
                 document.getElementById('editorTitle').textContent = 'Select a note to edit';
                 this.currentNote = null;
                 this.updateDeleteButtonState();
@@ -579,6 +647,45 @@
                 const isDeletable = !!(this.currentNote && this.currentNote.id);
                 deleteBtn.disabled = !isDeletable;
                 deleteBtn.classList.toggle('disabled', !isDeletable);
+                this.updateTranslationButtonState();
+            }
+
+            updateTranslationButtonState() {
+                const translateBtn = document.getElementById('translateBtn');
+                if (!translateBtn) return;
+
+                const canGenerate = !!(this.currentNote && this.currentNote.id) && !this.isGenerating;
+                translateBtn.disabled = !canGenerate;
+                translateBtn.classList.toggle('disabled', !canGenerate);
+            }
+
+            async translateNote() {
+                if (!this.currentNote || !this.currentNote.id || this.isGenerating) return;
+
+                this.isGenerating = true;
+                this.updateTranslationButtonState();
+                this.showMessage('Translating note...', 'loading');
+
+                try {
+                    const language = document.getElementById('targetLanguage').value;
+                    const response = await fetch(`/api/notes/${this.currentNote.id}/translate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ language })
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Failed to translate note');
+
+                    document.getElementById('noteTitle').value = result.title;
+                    document.getElementById('noteContent').value = result.content;
+                    await this.saveNote();
+                    this.showMessage('Note translated and saved successfully!', 'success');
+                } catch (error) {
+                    this.showMessage(`Error translating note: ${error.message}`, 'error');
+                } finally {
+                    this.isGenerating = false;
+                    this.updateTranslationButtonState();
+                }
             }
 
             async saveNote(isAutoSave = false) {
