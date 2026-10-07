@@ -180,22 +180,28 @@
         }
 
         .editor-header {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 12px;
             align-items: center;
             margin-bottom: 20px;
         }
 
         .editor-title {
+            grid-column: 2;
             font-size: 1.5rem;
             color: #333;
             min-width: 0;
-            overflow-wrap: anywhere;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .editor-actions {
+            grid-column: 3;
             display: flex;
             gap: 10px;
+            white-space: nowrap;
         }
 
         .btn {
@@ -342,6 +348,37 @@
             text-align: center;
             padding: 20px;
             color: #666;
+        }
+
+        .message-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            flex: 0 0 auto;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-rotate 0.75s linear infinite;
+            vertical-align: -0.15em;
+        }
+
+        @keyframes spinner-rotate {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .loading-spinner {
+                animation: none;
+            }
         }
 
         .error {
@@ -657,6 +694,10 @@
                 const canGenerate = !!(this.currentNote && this.currentNote.id) && !this.isGenerating;
                 translateBtn.disabled = !canGenerate;
                 translateBtn.classList.toggle('disabled', !canGenerate);
+                translateBtn.setAttribute('aria-busy', String(this.isGenerating));
+                translateBtn.innerHTML = this.isGenerating
+                    ? '<span class="loading-spinner" aria-hidden="true"></span> Translating…'
+                    : 'Translate';
             }
 
             async translateNote() {
@@ -664,7 +705,7 @@
 
                 this.isGenerating = true;
                 this.updateTranslationButtonState();
-                this.showMessage('Translating note...', 'loading');
+                this.hideMessage();
 
                 try {
                     const language = document.getElementById('targetLanguage').value;
@@ -796,7 +837,12 @@
 
             showMessage(message, type) {
                 const messageArea = document.getElementById('messageArea');
-                messageArea.innerHTML = `<div class="${type}">${message}</div>`;
+                const loadingContent = type === 'loading'
+                    ? `<span class="loading-spinner" aria-hidden="true"></span><span>${message}</span>`
+                    : message;
+                const loadingAttributes = type === 'loading' ? ' role="status" aria-live="polite"' : '';
+                const loadingClass = type === 'loading' ? ' message-loading' : '';
+                messageArea.innerHTML = `<div class="${type}${loadingClass}"${loadingAttributes}>${loadingContent}</div>`;
                 
                 if (type === 'success') {
                     setTimeout(() => this.hideMessage(), 3000);
@@ -836,4 +882,3 @@
     </script>
 </body>
 </html>
-
