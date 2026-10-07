@@ -1,11 +1,13 @@
 import json
 import os
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 API_URL = "https://genai.comp.polyu.edu.hk/api/v1/chat/completions"
 MODEL = "DeepSeek-V4-Flash"
 API_KEY_ENV = "COMP_GENAI_API_KEY"
+PROMPT_FILE = Path(__file__).resolve().parents[2] / "prompt" / "note-translation.prompt.md"
 SUPPORTED_LANGUAGES = {
     "en": "English",
     "zh-CN": "Simplified Chinese",
@@ -44,21 +46,28 @@ def _api_key() -> str:
     return api_key
 
 
-def _prompt(title: str, content: str, language: str, operation: str) -> str:
+def _prompt(language: str, operation: str) -> str:
     language_name = SUPPORTED_LANGUAGES[language]
     if operation == "rewrite":
-        instruction = (
-            f"Translate and naturally polish the note into {language_name}. Preserve the meaning, "
-            "improve clarity and flow, and do not add facts."
+        operation_instruction = (
+            "Translate and naturally polish the note. Improve clarity and flow without changing "
+            "its meaning or adding facts."
         )
     else:
-        instruction = f"Translate the note accurately into {language_name}. Preserve its meaning and tone."
+        operation_instruction = "Translate the note accurately, preserving its meaning and tone."
+
+    try:
+        template = PROMPT_FILE.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise TranslationError(f"Could not load the translation prompt from {PROMPT_FILE}.") from error
+
+    required_placeholders = ("{{language}}", "{{operation_instruction}}")
+    if any(placeholder not in template for placeholder in required_placeholders):
+        raise TranslationError(f"The translation prompt at {PROMPT_FILE} is missing required placeholders.")
 
     return (
-        f"{instruction}\n"
-        "Return only a valid JSON object with exactly two string fields: title and content. "
-        "Do not wrap the JSON in Markdown fences.\n\n"
-        f"Title:\n{title}\n\nContent:\n{content}"
+        template.replace("{{language}}", language_name)
+        .replace("{{operation_instruction}}", operation_instruction)
     )
 
 
@@ -90,7 +99,16 @@ def generate_note_output(title: str, content: str, language: str, operation: str
 
     request_body = {
         "model": MODEL,
-        "messages": [{"role": "user", "content": _prompt(title, content, language, operation)}],
+        "messages": [
+            {"role": "system", "content": _prompt(language, operation)},
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {"title": title, "content": content},
+                    ensure_ascii=False,
+                ),
+            },
+        ],
         "stream": False,
     }
     request = Request(

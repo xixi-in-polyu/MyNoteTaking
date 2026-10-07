@@ -114,3 +114,6 @@ coverage.xml
 node_modules/
 .vercel
 .env*
+
+# 
+ask_llm.py
