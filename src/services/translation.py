@@ -3,9 +3,9 @@ import os
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-API_URL = "https://genai.comp.polyu.edu.hk/api/v1/chat/completions"
-MODEL = "DeepSeek-V4-Flash"
-API_KEY_ENV = "COMP_GENAI_API_KEY"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = "openrouter/free"
+API_KEY_ENV = "OPENROUTER_API_KEY"
 SUPPORTED_LANGUAGES = {
     "en": "English",
     "zh-CN": "Simplified Chinese",
@@ -42,6 +42,11 @@ def _api_key() -> str:
     if not api_key:
         raise TranslationError(f"Missing {API_KEY_ENV} configuration.")
     return api_key
+
+
+def _model() -> str:
+    """Allow deployments to pin a specific OpenRouter model without a code change."""
+    return os.environ.get("OPENROUTER_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
 def _prompt(title: str, content: str, language: str, operation: str) -> str:
@@ -89,7 +94,7 @@ def generate_note_output(title: str, content: str, language: str, operation: str
         raise TranslationError("Unsupported note operation.")
 
     request_body = {
-        "model": MODEL,
+        "model": _model(),
         "messages": [{"role": "user", "content": _prompt(title, content, language, operation)}],
         "stream": False,
     }
@@ -110,7 +115,7 @@ def generate_note_output(title: str, content: str, language: str, operation: str
         detail = error.read().decode("utf-8", errors="replace").strip()
         raise TranslationError(f"The translation API returned HTTP {error.code}. {detail or 'No details.'}") from error
     except URLError as error:
-        raise TranslationError("Could not reach the translation API. Check the network or approved VPN connection.") from error
+        raise TranslationError("Could not reach OpenRouter. Check the server network connection.") from error
     except json.JSONDecodeError as error:
         raise TranslationError("The translation API returned invalid JSON.") from error
 

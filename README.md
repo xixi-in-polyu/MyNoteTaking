@@ -170,7 +170,19 @@ The application is configured for easy deployment with:
 ### Environment Variables
 - `FLASK_ENV`: Set to `development` for debug mode
 - `SECRET_KEY`: Flask secret key for sessions
-- `COMP_GENAI_API_KEY`: API key for the server-side translation and rewrite provider
+- `OPENROUTER_API_KEY`: OpenRouter API key used by server-side translation and rewrite
+- `OPENROUTER_MODEL`: Optional OpenRouter model slug; defaults to the free `openrouter/free` router
+
+For local development, put the values in `.env` (this file is ignored by Git):
+
+```dotenv
+OPENROUTER_API_KEY=sk-or-v1-your-key
+OPENROUTER_MODEL=openrouter/free
+```
+
+For Vercel, add the same variables under **Project Settings → Environment Variables** and
+redeploy the project. Do not prefix the key with `VITE_` or expose it in browser code; the
+translation request is made by the Flask server.
 
 ### Database Configuration
 - Database file: `src/database/app.db`
@@ -220,4 +232,3 @@ Potential improvements for future versions:
 ---
 
 **Built with ❤️ using Flask, SQLite, and modern web technologies**
-

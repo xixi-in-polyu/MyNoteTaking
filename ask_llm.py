@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ask the COMP on-premises GenAI endpoint a question."""
+"""Ask a free model through OpenRouter."""
 
 import json
 import os
@@ -8,9 +8,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-API_URL = "https://genai.comp.polyu.edu.hk/api/v1/chat/completions"
-MODEL = "DeepSeek-V4-Flash"
-API_KEY_ENV = "COMP_GENAI_API_KEY"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = "openrouter/free"
+API_KEY_ENV = "OPENROUTER_API_KEY"
 
 
 def load_dotenv() -> None:
@@ -32,7 +32,7 @@ def load_dotenv() -> None:
 def ask_llm(question: str, api_key: str) -> str:
     """Send one question to the configured chat-completions endpoint."""
     request_body = {
-        "model": MODEL,
+        "model": os.environ.get("OPENROUTER_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
         "messages": [{"role": "user", "content": question}],
         "stream": False,
     }
@@ -55,10 +55,7 @@ def ask_llm(question: str, api_key: str) -> str:
             f"The API returned HTTP {error.code}. {detail or 'No error details.'}"
         ) from error
     except URLError as error:
-        raise RuntimeError(
-            "Could not reach the API. Connect to the PolyU campus network "
-            "or its approved VPN and try again."
-        ) from error
+        raise RuntimeError("Could not reach OpenRouter. Check the network connection.") from error
     except json.JSONDecodeError as error:
         raise RuntimeError("The API returned an invalid JSON response.") from error
 
