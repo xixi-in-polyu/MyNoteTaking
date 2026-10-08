@@ -113,7 +113,7 @@ coverage.xml
 .neon
 node_modules/
 .vercel
-.env*
+.env
 
 # 
 ask_llm.py
