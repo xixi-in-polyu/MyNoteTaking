@@ -535,7 +535,7 @@
                 this.notes = [];
                 this.currentNote = null;
                 this.isLoading = false;
-                this.isGenerating = false;
+                this.generatingNoteIds = new Set();
                 this.init();
             }
 
@@ -691,25 +691,33 @@
                 const translateBtn = document.getElementById('translateBtn');
                 if (!translateBtn) return;
 
-                const canGenerate = !!(this.currentNote && this.currentNote.id) && !this.isGenerating;
+                const isGenerating = !!(
+                    this.currentNote &&
+                    this.currentNote.id &&
+                    this.generatingNoteIds.has(this.currentNote.id)
+                );
+                const canGenerate = !!(this.currentNote && this.currentNote.id) && !isGenerating;
                 translateBtn.disabled = !canGenerate;
                 translateBtn.classList.toggle('disabled', !canGenerate);
-                translateBtn.setAttribute('aria-busy', String(this.isGenerating));
-                translateBtn.innerHTML = this.isGenerating
+                translateBtn.setAttribute('aria-busy', String(isGenerating));
+                translateBtn.innerHTML = isGenerating
                     ? '<span class="loading-spinner" aria-hidden="true"></span> Translating…'
                     : 'Translate';
             }
 
             async translateNote() {
-                if (!this.currentNote || !this.currentNote.id || this.isGenerating) return;
+                if (!this.currentNote || !this.currentNote.id) return;
 
-                this.isGenerating = true;
+                const noteId = this.currentNote.id;
+                if (this.generatingNoteIds.has(noteId)) return;
+
+                this.generatingNoteIds.add(noteId);
                 this.updateTranslationButtonState();
                 this.hideMessage();
 
                 try {
                     const language = document.getElementById('targetLanguage').value;
-                    const response = await fetch(`/api/notes/${this.currentNote.id}/translate`, {
+                    const response = await fetch(`/api/notes/${noteId}/translate`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ language })
@@ -717,14 +725,36 @@
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error || 'Failed to translate note');
 
-                    document.getElementById('noteTitle').value = result.title;
-                    document.getElementById('noteContent').value = result.content;
-                    await this.saveNote();
+                    const saveResponse = await fetch(`/api/notes/${noteId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: result.title || 'Untitled',
+                            content: result.content
+                        })
+                    });
+                    const savedNote = await saveResponse.json();
+                    if (!saveResponse.ok) throw new Error(savedNote.error || 'Failed to save translated note');
+
+                    const existingIndex = this.notes.findIndex(note => note.id === savedNote.id);
+                    if (existingIndex >= 0) {
+                        this.notes[existingIndex] = savedNote;
+                    } else {
+                        this.notes.unshift(savedNote);
+                    }
                     this.showMessage('Note translated and saved successfully!', 'success');
+
+                    if (this.currentNote && this.currentNote.id === noteId) {
+                        this.currentNote = savedNote;
+                        document.getElementById('noteTitle').value = savedNote.title || '';
+                        document.getElementById('noteContent').value = savedNote.content || '';
+                        document.getElementById('editorTitle').textContent = savedNote.title || 'Untitled Note';
+                    }
+                    this.renderNotesList();
                 } catch (error) {
                     this.showMessage(`Error translating note: ${error.message}`, 'error');
                 } finally {
-                    this.isGenerating = false;
+                    this.generatingNoteIds.delete(noteId);
                     this.updateTranslationButtonState();
                 }
             }
