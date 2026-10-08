@@ -536,6 +536,7 @@
                 this.currentNote = null;
                 this.isLoading = false;
                 this.generatingNoteIds = new Set();
+                this.messageTimeout = null;
                 this.init();
             }
 
@@ -623,6 +624,7 @@
                 const note = this.notes.find(n => n.id === noteId);
                 if (!note) return;
 
+                this.hideMessage();
                 this.currentNote = note;
                 this.showEditor();
                 this.renderNotesList(); // Re-render to update active state
@@ -633,6 +635,7 @@
             }
 
             createNewNote() {
+                this.hideMessage();
                 this.currentNote = {
                     id: null,
                     title: '',
@@ -668,6 +671,7 @@
             }
 
             hideEditor() {
+                this.hideMessage();
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('editorForm').style.display = 'none';
                 document.getElementById('editorActions').style.display = 'none';
@@ -742,7 +746,7 @@
                     } else {
                         this.notes.unshift(savedNote);
                     }
-                    this.showMessage('Note translated and saved successfully!', 'success');
+                    this.showMessage('Note translated and saved successfully!', 'success', noteId);
 
                     if (this.currentNote && this.currentNote.id === noteId) {
                         this.currentNote = savedNote;
@@ -752,7 +756,7 @@
                     }
                     this.renderNotesList();
                 } catch (error) {
-                    this.showMessage(`Error translating note: ${error.message}`, 'error');
+                    this.showMessage(`Error translating note: ${error.message}`, 'error', noteId);
                 } finally {
                     this.generatingNoteIds.delete(noteId);
                     this.updateTranslationButtonState();
@@ -865,7 +869,16 @@
                 `).join('');
             }
 
-            showMessage(message, type) {
+            showMessage(message, type, noteId = null) {
+                if (noteId !== null && (!this.currentNote || this.currentNote.id !== noteId)) {
+                    return;
+                }
+
+                if (this.messageTimeout) {
+                    clearTimeout(this.messageTimeout);
+                    this.messageTimeout = null;
+                }
+
                 const messageArea = document.getElementById('messageArea');
                 const loadingContent = type === 'loading'
                     ? `<span class="loading-spinner" aria-hidden="true"></span><span>${message}</span>`
@@ -875,11 +888,15 @@
                 messageArea.innerHTML = `<div class="${type}${loadingClass}"${loadingAttributes}>${loadingContent}</div>`;
                 
                 if (type === 'success') {
-                    setTimeout(() => this.hideMessage(), 3000);
+                    this.messageTimeout = setTimeout(() => this.hideMessage(), 3000);
                 }
             }
 
             hideMessage() {
+                if (this.messageTimeout) {
+                    clearTimeout(this.messageTimeout);
+                    this.messageTimeout = null;
+                }
                 document.getElementById('messageArea').innerHTML = '';
             }
 
