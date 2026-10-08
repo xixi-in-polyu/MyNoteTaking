@@ -129,6 +129,11 @@ def generate_note_output(title: str, content: str, language: str, operation: str
     try:
         with urlopen(request, timeout=120) as response:
             payload = json.loads(response.read().decode("utf-8"))
+            print(
+                "OPENROUTER_RESPONSE:",
+                json.dumps(payload, ensure_ascii=False),
+                flush=True,
+            )
     except HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace").strip()
         raise TranslationError(f"The translation API returned HTTP {error.code}. {detail or 'No details.'}") from error
