@@ -357,6 +357,21 @@
             gap: 10px;
         }
 
+        #messageArea {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            z-index: 1000;
+            width: min(420px, calc(100vw - 32px));
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        #messageArea > div {
+            margin-bottom: 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+        }
+
         .loading-spinner {
             display: inline-block;
             width: 1em;
@@ -467,6 +482,8 @@
     </style>
 </head>
 <body>
+    <div id="messageArea" aria-live="polite"></div>
+
     <div class="container">
         <div class="header">
             <h1>📝 NoteTaker</h1>
@@ -491,8 +508,6 @@
                         <button class="btn btn-delete" id="deleteBtn" type="button">🗑️ Delete</button>
                     </div>
                 </div>
-
-                <div id="messageArea"></div>
 
                 <div class="translation-tools" id="translationTools" style="display: none;">
                     <label class="form-label" for="targetLanguage">Translate to</label>
@@ -713,6 +728,7 @@
                 if (!this.currentNote || !this.currentNote.id) return;
 
                 const noteId = this.currentNote.id;
+                const sourceNoteTitle = this.currentNote.title || 'Untitled';
                 if (this.generatingNoteIds.has(noteId)) return;
 
                 this.generatingNoteIds.add(noteId);
@@ -746,7 +762,7 @@
                     } else {
                         this.notes.unshift(savedNote);
                     }
-                    this.showMessage('Note translated and saved successfully!', 'success', noteId);
+                    this.showMessage(`“${sourceNoteTitle}” translated and saved successfully!`, 'success');
 
                     if (this.currentNote && this.currentNote.id === noteId) {
                         this.currentNote = savedNote;
@@ -756,7 +772,7 @@
                     }
                     this.renderNotesList();
                 } catch (error) {
-                    this.showMessage(`Error translating note: ${error.message}`, 'error', noteId);
+                    this.showMessage(`Error translating “${sourceNoteTitle}”: ${error.message}`, 'error');
                 } finally {
                     this.generatingNoteIds.delete(noteId);
                     this.updateTranslationButtonState();
@@ -880,9 +896,10 @@
                 }
 
                 const messageArea = document.getElementById('messageArea');
+                const safeMessage = this.escapeHtml(String(message));
                 const loadingContent = type === 'loading'
-                    ? `<span class="loading-spinner" aria-hidden="true"></span><span>${message}</span>`
-                    : message;
+                    ? `<span class="loading-spinner" aria-hidden="true"></span><span>${safeMessage}</span>`
+                    : safeMessage;
                 const loadingAttributes = type === 'loading' ? ' role="status" aria-live="polite"' : '';
                 const loadingClass = type === 'loading' ? ' message-loading' : '';
                 messageArea.innerHTML = `<div class="${type}${loadingClass}"${loadingAttributes}>${loadingContent}</div>`;
